@@ -83,13 +83,23 @@ export async function GET(request: NextRequest) {
   const genre = searchParams.get('genre');
   const type = (searchParams.get('type') || 'background').toString(); // 'background' or 'songs'
   const songGenre = (searchParams.get('songGenre') || 'any').toString();
-  const minParam = parseInt(searchParams.get('minDuration') || '3', 10);
-  const maxParam = parseInt(searchParams.get('maxDuration') || '60', 10);
-  let minDuration = Math.min(minParam || 0, maxParam || 0);
-  let maxDuration = Math.max(minParam || 0, maxParam || 0);
-  if (minDuration <= 0) minDuration = 1;
-  if (maxDuration <= 0) maxDuration = 60;
-  const customKeywords = searchParams.get('keywords') || '';
+  const allDurations = searchParams.get('allDurations') === 'true';
+  const searchQuery = searchParams.get('q') || ''; // Declare searchQuery variable
+  
+  // Fixed duration rules based on music type (unless allDurations is enabled)
+  let minDuration: number;
+  let maxDuration: number;
+  
+  if (allDurations) {
+    minDuration = 0; // No minimum
+    maxDuration = 999; // Effectively no maximum
+  } else if (type === 'background') {
+    minDuration = 30; // 30 minutes minimum
+    maxDuration = 240; // 4 hours maximum
+  } else {
+    minDuration = 0; // No minimum for songs
+    maxDuration = 10; // 10 minutes maximum
+  }
 
   if (!genre) {
     return NextResponse.json({ error: 'Genre parameter is required' }, { status: 400 });
@@ -111,12 +121,11 @@ export async function GET(request: NextRequest) {
         baseQuery += ` ${songGenre}`;
       }
     }
-    const searchQuery = customKeywords ? `${baseQuery} ${customKeywords}` : baseQuery;
 
     // hint for playlist search
-    let durationQuery = searchQuery;
-    if (type === 'background' && minDuration >= 10) {
-      durationQuery += ' long version extended playlist';
+    let durationQuery = baseQuery;
+    if (type === 'background') {
+      durationQuery += ' long version extended playlist 1 hour';
     } else {
       durationQuery += ' playlist';
     }
@@ -255,27 +264,24 @@ export async function GET(request: NextRequest) {
 
     // 5) Filter tracks same as before
     const filtered = tracks.filter((track: any) => {
-      const ds = track.durationSeconds || (() => {
-        const parts = String(track.duration).split(':').map(p => parseInt(p || '0', 10));
-        if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
-        if (parts.length === 2) return parts[0]*60 + parts[1];
-        if (parts.length === 1) return parts[0];
-        return 0;
-      })();
-      if (!ds) return false;
-      if (ds < minSeconds || ds > maxSeconds) return false;
+      // Duration filter - skip if allDurations is enabled
+      if (!allDurations) {
+        const ds = track.durationSeconds || (() => {
+          const parts = String(track.duration).split(':').map(p => parseInt(p || '0', 10));
+          if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+          if (parts.length === 2) return parts[0]*60 + parts[1];
+          if (parts.length === 1) return parts[0];
+          return 0;
+        })();
+        if (!ds) return false;
+        if (ds < minSeconds || ds > maxSeconds) return false;
+      }
 
       if (type === 'songs' && songGenre && songGenre !== 'any') {
         const g = songGenre.toLowerCase();
         const titleLower = track.title.toLowerCase();
         const artistLower = track.artist.toLowerCase();
         if (!(titleLower.includes(g) || artistLower.includes(g))) return false;
-      }
-
-      if (customKeywords && customKeywords.trim()) {
-        const keywords = customKeywords.toLowerCase().split(/\s+/);
-        const searchText = `${track.title} ${track.artist}`.toLowerCase();
-        if (!keywords.every(kw => searchText.includes(kw))) return false;
       }
 
       return true;
@@ -289,6 +295,7 @@ export async function GET(request: NextRequest) {
       searchQuery: durationQuery,
       type,
       songGenre,
+      allDurations,
       preferences: { minDuration, maxDuration, minSeconds, maxSeconds }
     });
   } catch (error) {

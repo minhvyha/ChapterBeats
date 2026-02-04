@@ -1,370 +1,411 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Music, Sparkles, Disc3, Play, X, Zap, Loader2, Settings2, Clock } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Slider } from '@/components/ui/slider'
+import { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Search,
+  Music,
+  Sparkles,
+  Disc3,
+  Play,
+  X,
+  Zap,
+  Loader2,
+  Settings2,
+  Clock,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
 
-type MusicType = 'background' | 'songs'
+type MusicType = "background" | "songs";
 
 interface Book {
-  id: string
-  title: string
-  author: string
-  cover: string
-  genre: string
-  description?: string
-  etag?: string
-  pageCount?: number
-  publishedDate?: string
+  id: string;
+  title: string;
+  author: string;
+  cover: string;
+  genre: string;
+  description?: string;
+  etag?: string;
+  pageCount?: number;
+  publishedDate?: string;
 }
 
 interface MusicPreferences {
-  type: MusicType
-  minDuration: number // in minutes
-  maxDuration: number // in minutes
-  customKeywords: string
-  songGenre?: string // 'pop' | 'rock' | 'electronic' | 'any'
+  type: MusicType;
+  songGenre?: string; // 'pop' | 'rock' | 'electronic' | 'any'
+  allDurations?: boolean; // ignore duration filters
 }
 
 interface Track {
-  id: string
-  title: string
-  artist: string
-  duration: string
-  cover?: string
-  youtubeUrl?: string
-  isPlaying?: boolean
+  id: string;
+  title: string;
+  artist: string;
+  duration: string;
+  cover?: string;
+  youtubeUrl?: string;
+  isPlaying?: boolean;
 }
 
 interface MoodType {
-  [key: string]: string
+  [key: string]: string;
 }
 
 const MOCK_BOOKS: Book[] = [
   {
-    id: '1',
-    title: 'Neuromancer',
-    author: 'William Gibson',
-    cover: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=400&h=600&fit=crop',
-    genre: 'Cyberpunk'
+    id: "1",
+    title: "Neuromancer",
+    author: "William Gibson",
+    cover:
+      "https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=400&h=600&fit=crop",
+    genre: "Cyberpunk",
   },
   {
-    id: '2',
-    title: 'The Secret History',
-    author: 'Donna Tartt',
-    cover: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&h=600&fit=crop',
-    genre: 'Dark Academia'
+    id: "2",
+    title: "The Secret History",
+    author: "Donna Tartt",
+    cover:
+      "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&h=600&fit=crop",
+    genre: "Dark Academia",
   },
   {
-    id: '3',
-    title: 'Pride and Prejudice',
-    author: 'Jane Austen',
-    cover: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=400&h=600&fit=crop',
-    genre: 'Romance'
-  }
-]
+    id: "3",
+    title: "Pride and Prejudice",
+    author: "Jane Austen",
+    cover:
+      "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=400&h=600&fit=crop",
+    genre: "Romance",
+  },
+];
 
 const GENRE_TO_MOOD: { [key: string]: string } = {
-  'Cyberpunk': 'scifi',
-  'Dark Academia': 'mystery',
-  'Romance': 'romantic',
-  'default': 'mystery'
-}
+  Cyberpunk: "scifi",
+  "Dark Academia": "mystery",
+  Romance: "romantic",
+  default: "mystery",
+};
 
 const GENRE_PLAYLISTS: { [key: string]: Track[] } = {
-  'scifi': [
-    { id: '1', title: 'Space Odyssey', artist: 'Galactic Groove', duration: '4:30' },
-    { id: '2', title: 'Alien Pulse', artist: 'Interstellar Beats', duration: '5:15' }
+  scifi: [
+    {
+      id: "1",
+      title: "Space Odyssey",
+      artist: "Galactic Groove",
+      duration: "4:30",
+    },
+    {
+      id: "2",
+      title: "Alien Pulse",
+      artist: "Interstellar Beats",
+      duration: "5:15",
+    },
   ],
-  'mystery': [
-    { id: '3', title: 'Shadow Symphony', artist: 'Mystic Melodies', duration: '3:45' },
-    { id: '4', title: 'Enigma Echo', artist: 'Cryptic Crescendo', duration: '4:00' }
+  mystery: [
+    {
+      id: "3",
+      title: "Shadow Symphony",
+      artist: "Mystic Melodies",
+      duration: "3:45",
+    },
+    {
+      id: "4",
+      title: "Enigma Echo",
+      artist: "Cryptic Crescendo",
+      duration: "4:00",
+    },
   ],
-  'romantic': [
-    { id: '5', title: 'Love Serenade', artist: 'Heartfelt Harmony', duration: '3:00' },
-    { id: '6', title: 'Passionate Waltz', artist: 'Emotional Euphoria', duration: '3:30' }
-  ]
-}
+  romantic: [
+    {
+      id: "5",
+      title: "Love Serenade",
+      artist: "Heartfelt Harmony",
+      duration: "3:00",
+    },
+    {
+      id: "6",
+      title: "Passionate Waltz",
+      artist: "Emotional Euphoria",
+      duration: "3:30",
+    },
+  ],
+};
 
 const MOOD_COLORS: { [key: string]: string } = {
-  'scifi': '#8B5CF6',
-  'mystery': '#FBBF24',
-  'romantic': '#10B981'
-}
+  scifi: "#8B5CF6",
+  mystery: "#FBBF24",
+  romantic: "#10B981",
+};
 
-const ACCENT_COLOR = '#8B5CF6' // Single primary color for the interface
+const ACCENT_COLOR = "#8B5CF6"; // Single primary color for the interface
 
 export default function ChapterBeats() {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedBook, setSelectedBook] = useState<Book | null>(null)
-  const [isSearching, setIsSearching] = useState(false)
-  const [searchResults, setSearchResults] = useState<Book[]>([])
-  const [tracks, setTracks] = useState<Track[]>([])
-  const [isLoadingMusic, setIsLoadingMusic] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [showResults, setShowResults] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
-  const [currentMood, setCurrentMood] = useState<string>('mystery')
-  const [history, setHistory] = useState<Book[]>([])
-  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<Book[]>([]);
+  const [tracks, setTracks] = useState<Track[]>([]);
+  const [isLoadingMusic, setIsLoadingMusic] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showResults, setShowResults] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [currentMood, setCurrentMood] = useState<string>("mystery");
+  const [history, setHistory] = useState<Book[]>([]);
+
   // Music preferences
   const [musicPrefs, setMusicPrefs] = useState<MusicPreferences>({
-    type: 'background',
-    minDuration: 3,
-    maxDuration: 60,
-    customKeywords: '',
-    songGenre: 'any'
-  })
+    type: "songs",
+    songGenre: "any",
+    allDurations: true,
+  });
+
+  // Fixed duration rules based on music type
+  const getDurationLimits = useCallback((type: MusicType) => {
+    if (type === "background") {
+      return { minDuration: 30, maxDuration: 240 }; // 30 min to 4 hours
+    } else {
+      return { minDuration: 0, maxDuration: 10 }; // 0 to 10 minutes
+    }
+  }, []);
 
   // Helper functions for filtering
   const parseDurationToSeconds = useCallback((duration: string): number => {
-    if (!duration) return 0
-    
+    if (!duration) return 0;
+
     // If it's already a number, return it
-    if (!isNaN(Number(duration))) return Number(duration)
-    
+    if (!isNaN(Number(duration))) return Number(duration);
+
     // Parse "M:SS", "MM:SS", "H:MM:SS" format
-    const parts = duration.split(':').map(p => parseInt(p, 10))
-    
+    const parts = duration.split(":").map((p) => parseInt(p, 10));
+
     if (parts.length === 3) {
       // H:MM:SS
-      return parts[0] * 3600 + parts[1] * 60 + parts[2]
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
     } else if (parts.length === 2) {
       // M:SS or MM:SS
-      return parts[0] * 60 + parts[1]
+      return parts[0] * 60 + parts[1];
     } else if (parts.length === 1) {
       // Just seconds
-      return parts[0]
+      return parts[0];
     }
-    
-    return 0
-  }, [])
 
-  const filterTracksByPrefs = useCallback((tracks: Track[], prefs: MusicPreferences): Track[] => {
-    
-    let minSeconds = prefs.minDuration * 60
-    let maxSeconds = prefs.maxDuration * 60
-    
-    // Swap if min > max
-    if (minSeconds > maxSeconds) {
-      [minSeconds, maxSeconds] = [maxSeconds, minSeconds]
-    }
-    
-    return tracks.filter(track => {
-      // Duration filter
-      const durationSeconds = parseDurationToSeconds(track.duration)
-      if (durationSeconds === 0) return false // Exclude tracks with no duration
-      if (durationSeconds < minSeconds || durationSeconds > maxSeconds) return false
-      
-      // Song genre filter (only when type is 'songs' and not 'any')
-      if (prefs.type === 'songs' && prefs.songGenre && prefs.songGenre !== 'any') {
-        const genre = prefs.songGenre.toLowerCase()
-        const titleLower = track.title.toLowerCase()
-        const artistLower = track.artist.toLowerCase()
-        
-        const matches = titleLower.includes(genre) || artistLower.includes(genre)
-        if (!matches) return false
-      }
-      
-      // Keywords filter
-      if (prefs.customKeywords.trim()) {
-        const keywords = prefs.customKeywords.toLowerCase().split(/\s+/)
-        const searchText = `${track.title} ${track.artist}`.toLowerCase()
-        
-        const allMatch = keywords.every(kw => searchText.includes(kw))
-        if (!allMatch) return false
-      }
-      
-      return true
-    })
-  }, [parseDurationToSeconds])
+    return 0;
+  }, []);
+
+  const filterTracksByPrefs = useCallback(
+    (tracks: Track[], prefs: MusicPreferences): Track[] => {
+      return tracks.filter((track) => {
+        // Duration filter - skip if allDurations is enabled
+        if (!prefs.allDurations) {
+          const { minDuration, maxDuration } = getDurationLimits(prefs.type);
+          const minSeconds = minDuration * 60;
+          const maxSeconds = maxDuration * 60;
+          const durationSeconds = parseDurationToSeconds(track.duration);
+          if (durationSeconds === 0) return false; // Exclude tracks with no duration
+          if (durationSeconds < minSeconds || durationSeconds > maxSeconds)
+            return false;
+        }
+
+        // Song genre filter (only when type is 'songs' and not 'any')
+        if (
+          prefs.type === "songs" &&
+          prefs.songGenre &&
+          prefs.songGenre !== "any"
+        ) {
+          const genre = prefs.songGenre.toLowerCase();
+          const titleLower = track.title.toLowerCase();
+          const artistLower = track.artist.toLowerCase();
+
+          const matches =
+            titleLower.includes(genre) || artistLower.includes(genre);
+          if (!matches) return false;
+        }
+
+        return true;
+      });
+    },
+    [parseDurationToSeconds, getDurationLimits],
+  );
 
   // Load history from localStorage on mount
   useEffect(() => {
-    const savedHistory = localStorage.getItem('chapterbeats-history')
+    const savedHistory = localStorage.getItem("chapterbeats-history");
     if (savedHistory) {
       try {
-        setHistory(JSON.parse(savedHistory))
+        setHistory(JSON.parse(savedHistory));
       } catch (e) {
-        console.error('Failed to parse history from localStorage', e)
+        console.error("Failed to parse history from localStorage", e);
       }
     }
-  }, [])
+  }, []);
 
   // Save book to history
   const addToHistory = useCallback((book: Book) => {
     setHistory((prev) => {
       // Remove duplicates and add to front
-      const filtered = prev.filter((b) => b.id !== book.id)
-      const newHistory = [book, ...filtered].slice(0, 10) // Keep last 10
-      localStorage.setItem('chapterbeats-history', JSON.stringify(newHistory))
-      return newHistory
-    })
-  }, [])
+      const filtered = prev.filter((b) => b.id !== book.id);
+      const newHistory = [book, ...filtered].slice(0, 10); // Keep last 10
+      localStorage.setItem("chapterbeats-history", JSON.stringify(newHistory));
+      return newHistory;
+    });
+  }, []);
 
   // Live search with debounce
   const performSearch = useCallback(async (query: string) => {
     if (!query.trim() || query.length < 2) {
-      setSearchResults([])
-      setShowResults(false)
-      return
+      setSearchResults([]);
+      setShowResults(false);
+      return;
     }
 
-    setIsSearching(true)
-    setError(null)
-    setShowResults(true)
+    setIsSearching(true);
+    setError(null);
+    setShowResults(true);
 
     try {
-      
-      const booksResponse = await fetch(`/api/books?q=${encodeURIComponent(query)}`)
-      const booksData = await booksResponse.json()
-
+      const booksResponse = await fetch(
+        `/api/books?q=${encodeURIComponent(query)}`,
+      );
+      const booksData = await booksResponse.json();
 
       if (booksData.error) {
-        throw new Error(booksData.error)
+        throw new Error(booksData.error);
       }
 
       if (!booksData.books || booksData.books.length === 0) {
-        setSearchResults([])
-        setError('No books found')
-        return
+        setSearchResults([]);
+        setError("No books found");
+        return;
       }
 
       // Limit to 5 most relevant
-      const books = booksData.books.slice(0, 5)
-      console.log(books)
+      const books = booksData.books.slice(0, 5);
+      console.log(books);
       books.forEach((book: Book) => {
-        console.log(book.cover)
-      })
+        console.log(book.cover);
+      });
 
-      setSearchResults(books)
-      
+      setSearchResults(books);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to search books')
-      setSearchResults([])
+      setError(err instanceof Error ? err.message : "Failed to search books");
+      setSearchResults([]);
     } finally {
-      setIsSearching(false)
+      setIsSearching(false);
     }
-  }, [])
+  }, []);
 
   // Debounce the search
   useEffect(() => {
     const timer = setTimeout(() => {
-      performSearch(searchQuery)
-    }, 500)
+      performSearch(searchQuery);
+    }, 500);
 
-    return () => clearTimeout(timer)
-  }, [searchQuery, performSearch])
+    return () => clearTimeout(timer);
+  }, [searchQuery, performSearch]);
 
   const handleVibeCheck = async () => {
-    if (!searchQuery.trim()) return
+    if (!searchQuery.trim()) return;
 
-    setIsSearching(true)
-    setError(null)
+    setIsSearching(true);
+    setError(null);
 
     try {
-      
       // Search for books using Google Books API
-      const booksResponse = await fetch(`/api/books?q=${encodeURIComponent(searchQuery)}`)
-      const booksData = await booksResponse.json()
-
+      const booksResponse = await fetch(
+        `/api/books?q=${encodeURIComponent(searchQuery)}`,
+      );
+      const booksData = await booksResponse.json();
 
       if (booksData.error) {
-        throw new Error(booksData.error)
+        throw new Error(booksData.error);
       }
 
       if (!booksData.books || booksData.books.length === 0) {
-        setError('No books found. Try a different search term.')
-        setIsSearching(false)
-        return
+        setError("No books found. Try a different search term.");
+        setIsSearching(false);
+        return;
       }
 
       // Map books to include mood
       const booksWithMood = booksData.books.map((book: Book) => ({
         ...book,
-        mood: GENRE_TO_MOOD[book.genre] || GENRE_TO_MOOD['default']
-      }))
+        mood: GENRE_TO_MOOD[book.genre] || GENRE_TO_MOOD["default"],
+      }));
 
-      setSearchResults(booksWithMood)
-      
+      setSearchResults(booksWithMood);
+
       // Auto-select first book
-      const firstBook = booksWithMood[0]
-      await handleBookSelect(firstBook)
-      
+      const firstBook = booksWithMood[0];
+      await handleBookSelect(firstBook);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to search books')
+      setError(err instanceof Error ? err.message : "Failed to search books");
     } finally {
-      setIsSearching(false)
+      setIsSearching(false);
     }
-  }
+  };
 
   const handleBookSelect = async (book: Book) => {
-    setSelectedBook(book)
-    addToHistory(book)
-    setIsLoadingMusic(true)
-    setError(null)
-    setShowResults(false)
+    setSelectedBook(book);
+    addToHistory(book);
+    setIsLoadingMusic(true);
+    setError(null);
+    setShowResults(false);
 
     try {
-      
       // Build query parameters
       const params = new URLSearchParams({
         genre: book.genre,
         type: musicPrefs.type,
-        minDuration: musicPrefs.minDuration.toString(),
-        maxDuration: musicPrefs.maxDuration.toString(),
-      })
-      
-      if (musicPrefs.customKeywords.trim()) {
-        params.append('keywords', musicPrefs.customKeywords)
-      }
-      
-      if (musicPrefs.songGenre && musicPrefs.songGenre !== 'any') {
-        params.append('songGenre', musicPrefs.songGenre)
-      }
-      
-      // Fetch music based on book genre and preferences
-      const musicResponse = await fetch(`/api/music?${params.toString()}`)
-      const musicData = await musicResponse.json()
+      });
 
+      if (musicPrefs.songGenre && musicPrefs.songGenre !== "any") {
+        params.append("songGenre", musicPrefs.songGenre);
+      }
+
+      if (musicPrefs.allDurations) {
+        params.append("allDurations", "true");
+      }
+
+      // Fetch music based on book genre and preferences
+      const musicResponse = await fetch(`/api/music?${params.toString()}`);
+      const musicData = await musicResponse.json();
 
       if (musicData.error) {
-        throw new Error(musicData.error)
+        throw new Error(musicData.error);
       }
 
       if (!musicData.tracks || musicData.tracks.length === 0) {
-        setError('No music found for this book')
-        setTracks([])
+        setError("No music found for this book");
+        setTracks([]);
       } else {
         // Apply client-side filtering as safety net
-        const filteredTracks = filterTracksByPrefs(musicData.tracks, musicPrefs)
-        
+        const filteredTracks = filterTracksByPrefs(
+          musicData.tracks,
+          musicPrefs,
+        );
+
         if (filteredTracks.length === 0) {
-          setError('No music matches your filter preferences')
-          setTracks([])
+          setError("No music matches your filter preferences");
+          setTracks([]);
         } else {
-          setTracks(filteredTracks)
+          setTracks(filteredTracks);
         }
       }
-      
     } catch (err) {
-      setError('Failed to fetch music')
-      setTracks([])
+      setError("Failed to fetch music");
+      setTracks([]);
     } finally {
-      setIsLoadingMusic(false)
+      setIsLoadingMusic(false);
     }
-  }
+  };
 
   const handleReset = () => {
-    setSelectedBook(null)
-    setSearchQuery('')
-    setShowResults(false)
-  }
+    setSelectedBook(null);
+    setSearchQuery("");
+    setShowResults(false);
+  };
 
   return (
     <div className="min-h-screen bg-[#050505] text-white overflow-hidden">
@@ -391,7 +432,7 @@ export default function ChapterBeats() {
                 </h1>
               </div>
               <p className="text-xl text-gray-400 font-mono">
-                {'// Literary Soundtrack Generator'}
+                {"// Literary Soundtrack Generator"}
               </p>
             </motion.div>
 
@@ -405,27 +446,25 @@ export default function ChapterBeats() {
               <div
                 className="bg-white/5 backdrop-blur-sm p-8 relative"
                 style={{
-                  border: '4px solid #000',
-                  boxShadow: `8px 8px 0px ${ACCENT_COLOR}`
+                  border: "4px solid #000",
+                  boxShadow: `8px 8px 0px ${ACCENT_COLOR}`,
                 }}
               >
                 <div className="flex gap-4">
                   <div className="flex-1 relative">
-                    <Search 
-                      className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-500" 
-                    />
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-500" />
                     <Input
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' && searchResults.length > 0) {
-                          handleBookSelect(searchResults[0])
+                        if (e.key === "Enter" && searchResults.length > 0) {
+                          handleBookSelect(searchResults[0]);
                         }
                       }}
                       placeholder="Search for a book, author, or vibe..."
                       className="h-16 pl-14 text-xl bg-[#1a1a1a] border-4 border-black focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none font-mono"
                       style={{
-                        boxShadow: 'inset 4px 4px 0px rgba(0,0,0,0.5)'
+                        boxShadow: "inset 4px 4px 0px rgba(0,0,0,0.5)",
                       }}
                     />
                   </div>
@@ -434,22 +473,27 @@ export default function ChapterBeats() {
                     size="icon"
                     className="h-16 w-16 rounded-none border-4 border-black transition-all duration-200 hover:translate-x-1 hover:translate-y-1"
                     style={{
-                      backgroundColor: showSettings ? ACCENT_COLOR : 'transparent',
-                      color: showSettings ? '#fff' : ACCENT_COLOR,
-                      borderColor: '#000',
+                      backgroundColor: showSettings
+                        ? ACCENT_COLOR
+                        : "transparent",
+                      color: showSettings ? "#fff" : ACCENT_COLOR,
+                      borderColor: "#000",
                       boxShadow: `4px 4px 0px #000`,
                     }}
                   >
                     <Settings2 className="w-6 h-6" />
                   </Button>
                   <Button
-                    onClick={() => searchResults.length > 0 && handleBookSelect(searchResults[0])}
+                    onClick={() =>
+                      searchResults.length > 0 &&
+                      handleBookSelect(searchResults[0])
+                    }
                     disabled={isSearching || searchResults.length === 0}
                     size="lg"
                     className="h-16 px-8 text-lg font-black rounded-none border-4 border-black transition-all duration-200 hover:translate-x-1 hover:translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{
                       backgroundColor: ACCENT_COLOR,
-                      color: '#fff',
+                      color: "#fff",
                       boxShadow: `4px 4px 0px #000`,
                     }}
                   >
@@ -469,107 +513,96 @@ export default function ChapterBeats() {
                   {showSettings && (
                     <motion.div
                       initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
+                      animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
                       className="mt-6 overflow-hidden"
                     >
                       <div className="p-6 bg-[#0a0a0a] border-2 border-black space-y-6">
-                        {/* Music Type Selection */}
+                        {/* Music Type Selection with All Durations */}
                         <div>
-                          <label className="text-sm text-gray-400 font-mono mb-3 block">MUSIC TYPE:</label>
-                          <div className="flex gap-3">
+                          <label className="text-sm text-gray-400 font-mono mb-3 block">
+                            MUSIC TYPE:
+                          </label>
+                          <div className="flex flex-wrap gap-3">
                             <Badge
-                              onClick={() => setMusicPrefs({ ...musicPrefs, type: 'background' })}
+                              onClick={() =>
+                                setMusicPrefs({
+                                  ...musicPrefs,
+                                  allDurations: true,
+                                })
+                              }
                               className="cursor-pointer px-6 py-2 rounded-none border-2 border-black font-mono text-sm font-bold uppercase transition-all hover:scale-105"
                               style={{
-                                backgroundColor: musicPrefs.type === 'background' ? ACCENT_COLOR : 'transparent',
-                                color: musicPrefs.type === 'background' ? '#fff' : ACCENT_COLOR,
+                                backgroundColor: musicPrefs.allDurations
+                                  ? ACCENT_COLOR
+                                  : "transparent",
+                                color: musicPrefs.allDurations
+                                  ? "#fff"
+                                  : ACCENT_COLOR,
                                 borderColor: ACCENT_COLOR,
                               }}
                             >
-                              Background Music
+                              All Durations
                             </Badge>
+
                             <Badge
-                              onClick={() => setMusicPrefs({ ...musicPrefs, type: 'songs' })}
+                              onClick={() =>
+                                setMusicPrefs({
+                                  ...musicPrefs,
+                                  type: "songs",
+                                  allDurations: false,
+                                })
+                              }
                               className="cursor-pointer px-6 py-2 rounded-none border-2 border-black font-mono text-sm font-bold uppercase transition-all hover:scale-105"
                               style={{
-                                backgroundColor: musicPrefs.type === 'songs' ? ACCENT_COLOR : 'transparent',
-                                color: musicPrefs.type === 'songs' ? '#fff' : ACCENT_COLOR,
+                                backgroundColor:
+                                  musicPrefs.type === "songs" &&
+                                  !musicPrefs.allDurations
+                                    ? ACCENT_COLOR
+                                    : "transparent",
+                                color:
+                                  musicPrefs.type === "songs" &&
+                                  !musicPrefs.allDurations
+                                    ? "#fff"
+                                    : ACCENT_COLOR,
                                 borderColor: ACCENT_COLOR,
                               }}
                             >
-                              Pop Songs
+                              Songs (&lt;10 min)
+                            </Badge>
+                            <Badge
+                              onClick={() =>
+                                setMusicPrefs({
+                                  ...musicPrefs,
+                                  type: "background",
+                                  allDurations: false,
+                                })
+                              }
+                              className="cursor-pointer px-6 py-2 rounded-none border-2 border-black font-mono text-sm font-bold uppercase transition-all hover:scale-105"
+                              style={{
+                                backgroundColor:
+                                  musicPrefs.type === "background" &&
+                                  !musicPrefs.allDurations
+                                    ? ACCENT_COLOR
+                                    : "transparent",
+                                color:
+                                  musicPrefs.type === "background" &&
+                                  !musicPrefs.allDurations
+                                    ? "#fff"
+                                    : ACCENT_COLOR,
+                                borderColor: ACCENT_COLOR,
+                              }}
+                            >
+                              Background (30+ min)
                             </Badge>
                           </div>
-                        </div>
-
-                        {/* Song Genre Selection - Only show when type is 'songs' */}
-                        {musicPrefs.type === 'songs' && (
-                          <div>
-                            <label className="text-sm text-gray-400 font-mono mb-3 block">SONG STYLE:</label>
-                            <div className="flex flex-wrap gap-3">
-                              {['any', 'pop', 'rock', 'electronic', 'indie', 'jazz'].map((genre) => (
-                                <Badge
-                                  key={genre}
-                                  onClick={() => setMusicPrefs({ ...musicPrefs, songGenre: genre })}
-                                  className="cursor-pointer px-4 py-1.5 rounded-none border-2 border-black font-mono text-xs font-bold uppercase transition-all hover:scale-105"
-                                  style={{
-                                    backgroundColor: musicPrefs.songGenre === genre ? ACCENT_COLOR : 'transparent',
-                                    color: musicPrefs.songGenre === genre ? '#fff' : ACCENT_COLOR,
-                                    borderColor: ACCENT_COLOR,
-                                  }}
-                                >
-                                  {genre}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Duration Controls */}
-                        <div>
-                          <label className="text-sm text-gray-400 font-mono mb-3 flex items-center gap-2">
-                            <Clock className="w-4 h-4" />
-                            MIN DURATION: {musicPrefs.minDuration} MIN
-                          </label>
-                          <Slider
-                            value={[musicPrefs.minDuration]}
-                            onValueChange={(value) => setMusicPrefs({ ...musicPrefs, minDuration: value[0] })}
-                            min={1}
-                            max={30}
-                            step={1}
-                            className="w-full"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-sm text-gray-400 font-mono mb-3 flex items-center gap-2">
-                            <Clock className="w-4 h-4" />
-                            MAX DURATION: {musicPrefs.maxDuration} MIN
-                          </label>
-                          <Slider
-                            value={[musicPrefs.maxDuration]}
-                            onValueChange={(value) => setMusicPrefs({ ...musicPrefs, maxDuration: value[0] })}
-                            min={5}
-                            max={120}
-                            step={5}
-                            className="w-full"
-                          />
-                        </div>
-
-                        {/* Custom Keywords */}
-                        <div>
-                          <label className="text-sm text-gray-400 font-mono mb-3 block">CUSTOM KEYWORDS:</label>
-                          <Input
-                            value={musicPrefs.customKeywords}
-                            onChange={(e) => setMusicPrefs({ ...musicPrefs, customKeywords: e.target.value })}
-                            placeholder="e.g. jazz, piano, upbeat..."
-                            className="h-12 bg-[#1a1a1a] border-2 border-black focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none font-mono"
-                            style={{
-                              boxShadow: 'inset 2px 2px 0px rgba(0,0,0,0.5)'
-                            }}
-                          />
-                          <p className="text-xs text-gray-600 mt-2 font-mono">Add keywords to refine music search</p>
+                          <p className="text-xs text-gray-400 font-mono mt-2">
+                            {musicPrefs.allDurations
+                              ? "Showing all music regardless of duration"
+                              : musicPrefs.type === "background"
+                                ? "Long mixes for extended reading sessions"
+                                : "Shorter tracks for quick listening"}
+                          </p>
                         </div>
                       </div>
                     </motion.div>
@@ -583,24 +616,34 @@ export default function ChapterBeats() {
               {showResults && searchQuery.length >= 2 && (
                 <motion.div
                   initial={{ y: 20, opacity: 0, height: 0 }}
-                  animate={{ y: 0, opacity: 1, height: 'auto' }}
+                  animate={{ y: 0, opacity: 1, height: "auto" }}
                   exit={{ y: 20, opacity: 0, height: 0 }}
                   className="mt-6 w-full max-w-3xl"
                 >
                   <div
                     className="bg-[#0a0a0a] backdrop-blur-sm overflow-hidden"
                     style={{
-                      border: '4px solid #000',
-                      boxShadow: `6px 6px 0px ${ACCENT_COLOR}`
+                      border: "4px solid #000",
+                      boxShadow: `6px 6px 0px ${ACCENT_COLOR}`,
                     }}
                   >
                     <div className="p-4 border-b-4 border-black flex items-center justify-between">
-                      <p className="text-sm font-mono font-bold" style={{ color: ACCENT_COLOR }}>
-                        {isSearching ? 'SEARCHING...' : `FOUND ${searchResults.length} RESULTS`}
+                      <p
+                        className="text-sm font-mono font-bold"
+                        style={{ color: ACCENT_COLOR }}
+                      >
+                        {isSearching
+                          ? "SEARCHING..."
+                          : `FOUND ${searchResults.length} RESULTS`}
                       </p>
-                      {isSearching && <Loader2 className="w-4 h-4 animate-spin" style={{ color: ACCENT_COLOR }} />}
+                      {isSearching && (
+                        <Loader2
+                          className="w-4 h-4 animate-spin"
+                          style={{ color: ACCENT_COLOR }}
+                        />
+                      )}
                     </div>
-                    
+
                     {searchResults.length > 0 ? (
                       <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
                         {searchResults.map((book, index) => (
@@ -616,30 +659,42 @@ export default function ChapterBeats() {
                               src={book.cover || "/placeholder.svg"}
                               alt={book.title}
                               className="w-16 h-24 object-cover border-2 border-black group-hover:scale-105 transition-transform"
-                              style={{ boxShadow: `3px 3px 0px ${ACCENT_COLOR}` }}
+                              style={{
+                                boxShadow: `3px 3px 0px ${ACCENT_COLOR}`,
+                              }}
                             />
                             <div className="flex-1 min-w-0">
-                              <h4 className="font-bold text-lg line-clamp-1 mb-1">{book.title}</h4>
-                              <p className="text-sm text-gray-400 mb-2">{book.author}</p>
+                              <h4 className="font-bold text-lg line-clamp-1 mb-1">
+                                {book.title}
+                              </h4>
+                              <p className="text-sm text-gray-400 mb-2">
+                                {book.author}
+                              </p>
                               <Badge
                                 className="rounded-none border-2 border-black font-mono text-xs px-2 py-0.5"
                                 style={{
                                   backgroundColor: `${ACCENT_COLOR}20`,
                                   color: ACCENT_COLOR,
-                                  borderColor: ACCENT_COLOR
+                                  borderColor: ACCENT_COLOR,
                                 }}
                               >
                                 {book.genre}
                               </Badge>
                             </div>
-                            <Play className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity self-center" style={{ color: ACCENT_COLOR }} />
+                            <Play
+                              className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity self-center"
+                              style={{ color: ACCENT_COLOR }}
+                            />
                           </motion.button>
                         ))}
                       </div>
-                    ) : !isSearching && error && (
-                      <div className="p-8 text-center">
-                        <p className="text-gray-500 font-mono">{error}</p>
-                      </div>
+                    ) : (
+                      !isSearching &&
+                      error && (
+                        <div className="p-8 text-center">
+                          <p className="text-gray-500 font-mono">{error}</p>
+                        </div>
+                      )
                     )}
                   </div>
                 </motion.div>
@@ -656,7 +711,9 @@ export default function ChapterBeats() {
               >
                 {history.length > 0 ? (
                   <>
-                    <p className="text-sm text-gray-500 font-mono mb-4">RECENTLY VIEWED:</p>
+                    <p className="text-sm text-gray-500 font-mono mb-4">
+                      RECENTLY VIEWED:
+                    </p>
                     <div className="flex gap-4 flex-wrap justify-center max-w-4xl">
                       {history.map((book) => (
                         <button
@@ -664,8 +721,8 @@ export default function ChapterBeats() {
                           onClick={() => handleBookSelect(book)}
                           className="group relative overflow-hidden"
                           style={{
-                            border: '3px solid #000',
-                            boxShadow: '4px 4px 0px #000'
+                            border: "3px solid #000",
+                            boxShadow: "4px 4px 0px #000",
                           }}
                         >
                           <img
@@ -674,7 +731,9 @@ export default function ChapterBeats() {
                             className="w-32 h-48 object-cover transition-transform group-hover:scale-110"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                            <p className="text-xs font-bold line-clamp-2">{book.title}</p>
+                            <p className="text-xs font-bold line-clamp-2">
+                              {book.title}
+                            </p>
                           </div>
                         </button>
                       ))}
@@ -683,8 +742,12 @@ export default function ChapterBeats() {
                 ) : (
                   <div className="p-12 border-2 border-dashed border-gray-800 rounded-none">
                     <Music className="w-16 h-16 mx-auto mb-4 text-gray-700" />
-                    <p className="text-gray-500 font-mono text-sm">No history yet</p>
-                    <p className="text-gray-600 font-mono text-xs mt-2">Search for a book to get started</p>
+                    <p className="text-gray-500 font-mono text-sm">
+                      No history yet
+                    </p>
+                    <p className="text-gray-600 font-mono text-xs mt-2">
+                      Search for a book to get started
+                    </p>
                   </div>
                 )}
               </motion.div>
@@ -704,8 +767,8 @@ export default function ChapterBeats() {
               className="absolute top-8 right-8 rounded-none border-4 border-black z-50 w-14 h-14"
               style={{
                 backgroundColor: ACCENT_COLOR,
-                color: '#fff',
-                boxShadow: '4px 4px 0px #000'
+                color: "#fff",
+                boxShadow: "4px 4px 0px #000",
               }}
             >
               <X className="w-6 h-6" />
@@ -716,17 +779,21 @@ export default function ChapterBeats() {
               <motion.div
                 initial={{ x: -100, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
-                transition={{ delay: 0.2, type: 'spring', stiffness: 100 }}
+                transition={{ delay: 0.2, type: "spring", stiffness: 100 }}
                 className="flex-1 flex items-center justify-center relative"
               >
                 <div className="relative">
                   {/* Rotating Vinyl Background */}
                   <motion.div
                     animate={{ rotate: 360 }}
-                    transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+                    transition={{
+                      duration: 8,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
                     className="absolute -inset-16 flex items-center justify-center"
                   >
-                    <Disc3 
+                    <Disc3
                       className="w-96 h-96 opacity-20"
                       style={{ color: ACCENT_COLOR }}
                     />
@@ -736,10 +803,10 @@ export default function ChapterBeats() {
                   <Card
                     className="relative z-10 p-8 rounded-none overflow-hidden"
                     style={{
-                      border: '4px solid #000',
+                      border: "4px solid #000",
                       boxShadow: `12px 12px 0px ${ACCENT_COLOR}`,
                       background: `linear-gradient(135deg, ${ACCENT_COLOR}20, transparent)`,
-                      backdropFilter: 'blur(20px)',
+                      backdropFilter: "blur(20px)",
                     }}
                   >
                     <motion.img
@@ -750,8 +817,8 @@ export default function ChapterBeats() {
                       alt={selectedBook.title}
                       className="w-80 h-[480px] object-cover mb-6"
                       style={{
-                        border: '4px solid #000',
-                        boxShadow: '8px 8px 0px #000'
+                        border: "4px solid #000",
+                        boxShadow: "8px 8px 0px #000",
                       }}
                     />
                     <motion.div
@@ -759,13 +826,17 @@ export default function ChapterBeats() {
                       animate={{ y: 0, opacity: 1 }}
                       transition={{ delay: 0.6 }}
                     >
-                      <h2 className="text-4xl font-black mb-2">{selectedBook.title}</h2>
-                      <p className="text-xl text-gray-400 mb-4">{selectedBook.author}</p>
+                      <h2 className="text-4xl font-black mb-2">
+                        {selectedBook.title}
+                      </h2>
+                      <p className="text-xl text-gray-400 mb-4">
+                        {selectedBook.author}
+                      </p>
                       <Badge
                         className="rounded-none border-2 border-black font-mono font-bold px-4 py-1"
                         style={{
                           backgroundColor: ACCENT_COLOR,
-                          color: '#fff'
+                          color: "#fff",
                         }}
                       >
                         {selectedBook.genre}
@@ -775,98 +846,239 @@ export default function ChapterBeats() {
                 </div>
               </motion.div>
 
-              {/* Soundtrack Panel - Cassette Tapes */}
+              {/* Soundtrack Panel - Enhanced Design */}
               <motion.div
                 initial={{ x: 100, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
-                transition={{ delay: 0.3, type: 'spring', stiffness: 100 }}
-                className="w-[450px]"
+                transition={{ delay: 0.3, type: "spring", stiffness: 100 }}
+                className="w-[500px]"
               >
                 <div className="sticky top-8">
-                  <div className="mb-6 flex items-center gap-3">
-                    <Music className="w-8 h-8" style={{ color: ACCENT_COLOR }} />
-                    <h3 className="text-3xl font-black">SOUNDTRACK</h3>
+                  {/* Header with Neo-Brutalist styling */}
+                  <div
+                    className="mb-6 p-6 relative overflow-hidden"
+                    style={{
+                      border: "4px solid #000",
+                      boxShadow: `8px 8px 0px ${ACCENT_COLOR}`,
+                      background: `linear-gradient(135deg, ${ACCENT_COLOR}30, #0a0a0a)`,
+                    }}
+                  >
+                    <div className="flex items-center justify-between relative z-10">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="p-3 border-4 border-black"
+                          style={{ backgroundColor: ACCENT_COLOR }}
+                        >
+                          <Music className="w-8 h-8 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-3xl font-black tracking-tight">
+                            SOUNDTRACK
+                          </h3>
+                          <p className="text-sm font-mono text-gray-400">
+                            {tracks.length}{" "}
+                            {musicPrefs.type === "background"
+                              ? "MIXES"
+                              : "TRACKS"}
+                          </p>
+                        </div>
+                      </div>
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{
+                          duration: 3,
+                          repeat: Infinity,
+                          ease: "linear",
+                        }}
+                      >
+                        <Disc3
+                          className="w-12 h-12 opacity-30"
+                          style={{ color: ACCENT_COLOR }}
+                        />
+                      </motion.div>
+                    </div>
+
+                    {/* Decorative glitch bars */}
+                    <div
+                      className="absolute top-0 left-0 right-0 h-1"
+                      style={{ backgroundColor: ACCENT_COLOR }}
+                    />
+                    <div
+                      className="absolute bottom-0 left-0 right-0 h-1"
+                      style={{ backgroundColor: ACCENT_COLOR }}
+                    />
                   </div>
 
                   {isLoadingMusic ? (
-                    <div className="flex items-center justify-center h-64">
-                      <Loader2 className="w-12 h-12 animate-spin" style={{ color: ACCENT_COLOR }} />
+                    <div
+                      className="flex flex-col items-center justify-center h-64 border-4 border-black"
+                      style={{ backgroundColor: "#0a0a0a" }}
+                    >
+                      <Loader2
+                        className="w-16 h-16 animate-spin mb-4"
+                        style={{ color: ACCENT_COLOR }}
+                      />
+                      <p className="text-sm font-mono text-gray-400">
+                        LOADING SOUNDTRACK...
+                      </p>
+                    </div>
+                  ) : tracks.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-64 border-4 border-dashed border-gray-800">
+                      <Music className="w-16 h-16 mb-4 text-gray-700" />
+                      <p className="text-gray-500 font-mono text-sm">
+                        No tracks found
+                      </p>
                     </div>
                   ) : (
-                    <div className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto pr-2 custom-scrollbar">
                       {tracks.map((track, index) => (
                         <motion.div
                           key={track.id}
                           initial={{ x: 50, opacity: 0 }}
                           animate={{ x: 0, opacity: 1 }}
-                          transition={{ delay: 0.5 + index * 0.1 }}
+                          transition={{ delay: 0.5 + index * 0.05 }}
+                          whileHover={{ scale: 1.02 }}
                           className="group relative"
                         >
-                          {/* Cassette Tape Card */}
+                          {/* Enhanced Track Card */}
                           <div
                             onClick={() => {
                               if (track.youtubeUrl) {
-                                window.open(track.youtubeUrl, '_blank')
+                                window.open(track.youtubeUrl, "_blank");
                               }
                             }}
-                            className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] p-6 relative overflow-hidden cursor-pointer hover:translate-x-1 hover:translate-y-1 transition-transform"
+                            className="relative overflow-hidden cursor-pointer transition-all duration-200"
                             style={{
-                              border: '4px solid #000',
-                              boxShadow: `6px 6px 0px ${ACCENT_COLOR}`
+                              border: "4px solid #000",
+                              boxShadow: `6px 6px 0px ${ACCENT_COLOR}`,
+                              background: `linear-gradient(135deg, #1a1a1a, #0a0a0a)`,
                             }}
                           >
+                            {/* Glowing accent on hover */}
+                            <div
+                              className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity"
+                              style={{ backgroundColor: ACCENT_COLOR }}
+                            />
+
+                            {/* Track number badge */}
+                            <div
+                              className="absolute top-3 left-3 w-10 h-10 border-2 border-black flex items-center justify-center font-black"
+                              style={{
+                                backgroundColor: ACCENT_COLOR,
+                                color: "#fff",
+                              }}
+                            >
+                              {String(index + 1).padStart(2, "0")}
+                            </div>
+
                             {/* Cassette Reels */}
                             <div className="absolute top-3 right-3 flex gap-2">
-                              <div 
-                                className="w-6 h-6 rounded-full border-2 flex items-center justify-center"
+                              <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{
+                                  duration: 2,
+                                  repeat: Infinity,
+                                  ease: "linear",
+                                }}
+                                className="w-7 h-7 rounded-full border-2 flex items-center justify-center"
                                 style={{ borderColor: ACCENT_COLOR }}
                               >
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: ACCENT_COLOR }} />
-                              </div>
-                              <div 
-                                className="w-6 h-6 rounded-full border-2 flex items-center justify-center"
+                                <div
+                                  className="w-2 h-2 rounded-full"
+                                  style={{ backgroundColor: ACCENT_COLOR }}
+                                />
+                              </motion.div>
+                              <motion.div
+                                animate={{ rotate: -360 }}
+                                transition={{
+                                  duration: 2,
+                                  repeat: Infinity,
+                                  ease: "linear",
+                                }}
+                                className="w-7 h-7 rounded-full border-2 flex items-center justify-center"
                                 style={{ borderColor: ACCENT_COLOR }}
                               >
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: ACCENT_COLOR }} />
-                              </div>
+                                <div
+                                  className="w-2 h-2 rounded-full"
+                                  style={{ backgroundColor: ACCENT_COLOR }}
+                                />
+                              </motion.div>
                             </div>
 
-                            <div className="flex items-start gap-4">
-                              <Button
-                                size="icon"
-                                className="rounded-none border-2 border-black w-12 h-12 flex-shrink-0"
-                                style={{
-                                  backgroundColor: ACCENT_COLOR,
-                                  color: '#fff'
-                                }}
-                              >
-                                <Play className="w-5 h-5" fill="currentColor" />
-                              </Button>
+                            <div className="p-5 pt-16">
+                              <div className="flex items-center gap-4 mb-4">
+                                <Button
+                                  size="icon"
+                                  className="rounded-none border-3 border-black w-14 h-14 flex-shrink-0 transition-transform group-hover:scale-110"
+                                  style={{
+                                    backgroundColor: ACCENT_COLOR,
+                                    color: "#fff",
+                                    boxShadow: "3px 3px 0px #000",
+                                  }}
+                                >
+                                  <Play
+                                    className="w-6 h-6"
+                                    fill="currentColor"
+                                  />
+                                </Button>
 
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-bold text-lg mb-1 truncate">{track.title}</h4>
-                                <p className="text-sm text-gray-400 font-mono truncate">{track.artist}</p>
-                                <div className="mt-2 flex items-center gap-2">
-                                  <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
-                                    <div 
-                                      className="h-full rounded-full"
-                                      style={{ 
-                                        width: '0%',
-                                        backgroundColor: ACCENT_COLOR 
-                                      }}
-                                    />
-                                  </div>
-                                  <span className="text-xs font-mono text-gray-500">{track.duration}</span>
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-black text-xl mb-1 line-clamp-2 leading-tight">
+                                    {track.title}
+                                  </h4>
+                                  <p className="text-sm text-gray-400 font-mono truncate">
+                                    {track.artist}
+                                  </p>
                                 </div>
                               </div>
-                            </div>
 
-                            {/* Tape Label */}
-                            <div 
-                              className="absolute bottom-2 left-2 right-2 h-8 border-2 border-black/20 flex items-center justify-center"
-                              style={{ backgroundColor: `${ACCENT_COLOR}15` }}
-                            >
-                              <span className="text-xs font-mono opacity-50">TRACK {String(index + 1).padStart(2, '0')}</span>
+                              {/* Progress bar with duration */}
+                              <div className="flex items-center gap-3">
+                                <div className="flex-1 h-2 bg-black border-2 border-black overflow-hidden relative">
+                                  <motion.div
+                                    initial={{ width: "0%" }}
+                                    animate={{ width: "100%" }}
+                                    transition={{
+                                      duration: 2,
+                                      ease: "easeOut",
+                                    }}
+                                    className="h-full"
+                                    style={{ backgroundColor: ACCENT_COLOR }}
+                                  />
+                                </div>
+                                <div
+                                  className="px-3 py-1 border-2 border-black font-mono text-xs font-bold"
+                                  style={{
+                                    backgroundColor: `${ACCENT_COLOR}20`,
+                                    color: ACCENT_COLOR,
+                                  }}
+                                >
+                                  {track.duration}
+                                </div>
+                              </div>
+
+                              {/* Tape label stripe */}
+                              <div
+                                className="mt-4 -mx-5 -mb-5 h-10 border-t-2 border-black flex items-center justify-center gap-2"
+                                style={{ backgroundColor: `${ACCENT_COLOR}10` }}
+                              >
+                                <Sparkles
+                                  className="w-3 h-3"
+                                  style={{ color: ACCENT_COLOR }}
+                                />
+                                <span
+                                  className="text-xs font-mono font-bold"
+                                  style={{ color: ACCENT_COLOR }}
+                                >
+                                  {musicPrefs.type === "background"
+                                    ? "BACKGROUND MIX"
+                                    : "POP TRACK"}
+                                </span>
+                                <Sparkles
+                                  className="w-3 h-3"
+                                  style={{ color: ACCENT_COLOR }}
+                                />
+                              </div>
                             </div>
                           </div>
                         </motion.div>
@@ -892,5 +1104,5 @@ export default function ChapterBeats() {
         }
       `}</style>
     </div>
-  )
+  );
 }
