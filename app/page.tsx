@@ -28,6 +28,7 @@ interface MusicPreferences {
   minDuration: number // in minutes
   maxDuration: number // in minutes
   customKeywords: string
+  songGenre?: string // 'pop' | 'rock' | 'electronic' | 'any'
 }
 
 interface Track {
@@ -116,8 +117,72 @@ export default function ChapterBeats() {
     type: 'background',
     minDuration: 3,
     maxDuration: 60,
-    customKeywords: ''
+    customKeywords: '',
+    songGenre: 'any'
   })
+
+  // Helper functions for filtering
+  const parseDurationToSeconds = useCallback((duration: string): number => {
+    if (!duration) return 0
+    
+    // If it's already a number, return it
+    if (!isNaN(Number(duration))) return Number(duration)
+    
+    // Parse "M:SS", "MM:SS", "H:MM:SS" format
+    const parts = duration.split(':').map(p => parseInt(p, 10))
+    
+    if (parts.length === 3) {
+      // H:MM:SS
+      return parts[0] * 3600 + parts[1] * 60 + parts[2]
+    } else if (parts.length === 2) {
+      // M:SS or MM:SS
+      return parts[0] * 60 + parts[1]
+    } else if (parts.length === 1) {
+      // Just seconds
+      return parts[0]
+    }
+    
+    return 0
+  }, [])
+
+  const filterTracksByPrefs = useCallback((tracks: Track[], prefs: MusicPreferences): Track[] => {
+    
+    let minSeconds = prefs.minDuration * 60
+    let maxSeconds = prefs.maxDuration * 60
+    
+    // Swap if min > max
+    if (minSeconds > maxSeconds) {
+      [minSeconds, maxSeconds] = [maxSeconds, minSeconds]
+    }
+    
+    return tracks.filter(track => {
+      // Duration filter
+      const durationSeconds = parseDurationToSeconds(track.duration)
+      if (durationSeconds === 0) return false // Exclude tracks with no duration
+      if (durationSeconds < minSeconds || durationSeconds > maxSeconds) return false
+      
+      // Song genre filter (only when type is 'songs' and not 'any')
+      if (prefs.type === 'songs' && prefs.songGenre && prefs.songGenre !== 'any') {
+        const genre = prefs.songGenre.toLowerCase()
+        const titleLower = track.title.toLowerCase()
+        const artistLower = track.artist.toLowerCase()
+        
+        const matches = titleLower.includes(genre) || artistLower.includes(genre)
+        if (!matches) return false
+      }
+      
+      // Keywords filter
+      if (prefs.customKeywords.trim()) {
+        const keywords = prefs.customKeywords.toLowerCase().split(/\s+/)
+        const searchText = `${track.title} ${track.artist}`.toLowerCase()
+        
+        const allMatch = keywords.every(kw => searchText.includes(kw))
+        if (!allMatch) return false
+      }
+      
+      return true
+    })
+  }, [parseDurationToSeconds])
 
   // Load history from localStorage on mount
   useEffect(() => {
@@ -126,6 +191,7 @@ export default function ChapterBeats() {
       try {
         setHistory(JSON.parse(savedHistory))
       } catch (e) {
+        console.error('Failed to parse history from localStorage', e)
       }
     }
   }, [])
@@ -258,6 +324,10 @@ export default function ChapterBeats() {
         params.append('keywords', musicPrefs.customKeywords)
       }
       
+      if (musicPrefs.songGenre && musicPrefs.songGenre !== 'any') {
+        params.append('songGenre', musicPrefs.songGenre)
+      }
+      
       // Fetch music based on book genre and preferences
       const musicResponse = await fetch(`/api/music?${params.toString()}`)
       const musicData = await musicResponse.json()
@@ -271,7 +341,15 @@ export default function ChapterBeats() {
         setError('No music found for this book')
         setTracks([])
       } else {
-        setTracks(musicData.tracks)
+        // Apply client-side filtering as safety net
+        const filteredTracks = filterTracksByPrefs(musicData.tracks, musicPrefs)
+        
+        if (filteredTracks.length === 0) {
+          setError('No music matches your filter preferences')
+          setTracks([])
+        } else {
+          setTracks(filteredTracks)
+        }
       }
       
     } catch (err) {
@@ -424,6 +502,29 @@ export default function ChapterBeats() {
                             </Badge>
                           </div>
                         </div>
+
+                        {/* Song Genre Selection - Only show when type is 'songs' */}
+                        {musicPrefs.type === 'songs' && (
+                          <div>
+                            <label className="text-sm text-gray-400 font-mono mb-3 block">SONG STYLE:</label>
+                            <div className="flex flex-wrap gap-3">
+                              {['any', 'pop', 'rock', 'electronic', 'indie', 'jazz'].map((genre) => (
+                                <Badge
+                                  key={genre}
+                                  onClick={() => setMusicPrefs({ ...musicPrefs, songGenre: genre })}
+                                  className="cursor-pointer px-4 py-1.5 rounded-none border-2 border-black font-mono text-xs font-bold uppercase transition-all hover:scale-105"
+                                  style={{
+                                    backgroundColor: musicPrefs.songGenre === genre ? ACCENT_COLOR : 'transparent',
+                                    color: musicPrefs.songGenre === genre ? '#fff' : ACCENT_COLOR,
+                                    borderColor: ACCENT_COLOR,
+                                  }}
+                                >
+                                  {genre}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
                         {/* Duration Controls */}
                         <div>
