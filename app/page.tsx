@@ -898,15 +898,7 @@ export default function ChapterBeats() {
                       </motion.div>
                     </div>
 
-                    {/* Decorative glitch bars */}
-                    <div
-                      className="absolute top-0 left-0 right-0 h-1"
-                      style={{ backgroundColor: ACCENT_COLOR }}
-                    />
-                    <div
-                      className="absolute bottom-0 left-0 right-0 h-1"
-                      style={{ backgroundColor: ACCENT_COLOR }}
-                    />
+  
                   </div>
 
                   {isLoadingMusic ? (
