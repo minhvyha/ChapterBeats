@@ -408,7 +408,7 @@ export default function ChapterBeats() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white overflow-hidden">
+    <div className="min-h-screen bg-[#131313] text-white overflow-hidden">
       <AnimatePresence mode="wait">
         {!selectedBook ? (
           <motion.div
